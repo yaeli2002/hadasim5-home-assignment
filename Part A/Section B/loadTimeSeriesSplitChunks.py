@@ -5,10 +5,6 @@ import tempfile
 
 logging.basicConfig(level=logging.INFO)
 
-#A function that checks if the date is valid.
-def is_valid_timestamp(row):
-    if pd.isna(row['timestamp']):
-        return False
 
 def convert_to_datetime(df):
     df['timestamp'] = pd.to_datetime(df['timestamp'],errors='coerce', dayfirst=True)
@@ -21,7 +17,6 @@ def convert_to_number(df):
 
 def remove_invalid_rows(df):
     df = df.dropna(subset=['timestamp', 'value'])
-    df = df[df.apply(is_valid_timestamp, axis=1)]
     return df
 
 def dataframe_cleanup(df):
@@ -42,6 +37,7 @@ def split_by_day(df):
     file_list = []
 
     for date, group in grouped:
+        group['timestamp'] = group['timestamp'].dt.strftime('%d/%m/%Y %H:%M:%S')
         temporary_day_file= tempfile.NamedTemporaryFile(delete=False, suffix='.csv', mode='w', newline='', encoding='utf-8-sig')
         group.drop(columns='date').to_csv(temporary_day_file.name, index=False)
         file_list.append(temporary_day_file.name)
@@ -58,9 +54,16 @@ def process_temp_file(file_path):
 def process_data_in_parts(input_file, final_output_file):
     try:
         df = pd.read_csv(input_file)
-    except Exception as e:
-        logging.error(f"Error reading the file: {e}")
+    except FileNotFoundError as e:
+        logging.error(f"File not found: {input_file}. Exception: {e}")
         return
+    except pd.errors.ParserError as e:
+        logging.error(f"Error parsing the CSV file: {input_file}. Exception: {e}")
+        return
+    except Exception as e:
+        logging.error(f"Error reading the CSV file: {input_file}. Exception: {e}")
+        return
+
 
     df = dataframe_cleanup(df)
     temp_files = split_by_day(df)
@@ -79,6 +82,10 @@ def process_data_in_parts(input_file, final_output_file):
         final_df['זמן התחלה'] = final_df['זמן התחלה'].dt.strftime("%d/%m/%Y %H:%M:%S")
         try:
             final_df.to_csv(final_output_file, index=False, encoding='utf-8-sig')
+        except PermissionError as e:
+            logging.error(f"Permission denied when saving to {final_output_file}: {e}")
+        except OSError as e:
+            logging.error(f"OS error when saving average file: {e}")
         except Exception as e:
             logging.error(f"Error saving average file: {e}")
 

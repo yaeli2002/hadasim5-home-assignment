@@ -37,9 +37,16 @@ def average_for_each_hour(df):
 def procces_data_by_hour(input_file, output_file):
     try:
         df = pd.read_csv(input_file)
+    except FileNotFoundError as e:
+        logging.error(f"File not found: {input_file}. Exception: {e}")
+        return
+    except pd.errors.ParserError as e:
+        logging.error(f"Error parsing the CSV file: {input_file}. Exception: {e}")
+        return
     except Exception as e:
         logging.error(f"Error reading the file: {e}")
         return
+    
     # Clean and process in memory
     df = dataframe_cleanup(df)
     hourly_avg = average_for_each_hour(df)
@@ -47,6 +54,10 @@ def procces_data_by_hour(input_file, output_file):
     hourly_avg['זמן התחלה'] = hourly_avg['זמן התחלה'].dt.strftime("%d/%m/%Y %H:%M:%S")
     try:
         hourly_avg.to_csv(output_file, index=False, encoding='utf-8-sig')
+    except PermissionError as e:
+        logging.error(f"Permission denied when saving to {output_file}: {e}")
+    except OSError as e:
+            logging.error(f"OS error when saving average file: {e}")
     except Exception as e:
         logging.error(f"Error saving average file: {e}")
 
